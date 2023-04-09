@@ -1,0 +1,14 @@
+Prerequisites:
+
+1. Interfacing Library from edge impulse (included)
+
+2. TFT_eSPI for the scren
+After installing the eSPI library in the arduino IDE, the header file "User_Setup.h" needs to be edited for defining the ST7735_driver.
+Any other of the screen listed in the header file can be used.
+
+3. JPEGDecoder (bodmer)
+
+4. ESP32 board manager 
+Aditional board manger URL: https://dl.espressif.com/dl/package_esp32_index.json
+
+
