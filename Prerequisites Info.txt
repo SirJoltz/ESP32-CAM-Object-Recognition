@@ -1,6 +1,7 @@
 Prerequisites:
 
 1. Interfacing Library from edge impulse (included)
+This needs to be imported in the arduino ide
 
 2. TFT_eSPI for the scren
 After installing the eSPI library in the arduino IDE, the header file "User_Setup.h" needs to be edited for defining the ST7735_driver.
