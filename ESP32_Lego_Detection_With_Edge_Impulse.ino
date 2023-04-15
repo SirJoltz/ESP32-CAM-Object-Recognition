@@ -1,30 +1,21 @@
 // Libraries
-  #include <stdio.h>
-  // Edge Impulse Libraries (vision AI)
-  #include <FYP_inferencing.h>
-  #include "edge-impulse-sdk/dsp/image/image.hpp"
-  #include "esp_camera.h"
-  // tft screen 
-  #include <SPI.h>
-  //e_SPI Libary for drivers, pin definitions, clock speed (27mhz) 
-  #include <TFT_eSPI.h> // (edited dependant header "user_setup.h" for the project) 
-  // JPEG decoder library
-  #include <JPEGDecoder.h>
-
-// Definitions
+  #include <stdio.h>                                 // standard io
+  #include <Lego_Block_Detection_inferencing.h>      // Edge impulse (tensor flow) library for classifcation
+  #include "edge-impulse-sdk/dsp/image/image.hpp"    // imports processing.cpp for image croping, resizing and converting
+  #include "esp_camera.h"                            // camera library 
+  #include <SPI.h>                                   // spi protocal for the TFT screen
+  #include <TFT_eSPI.h>                              // e_SPI Libary for drivers & pin definitions (screen selected in "user_setup.h") 
+  #include <JPEGDecoder.h>                           // JPEG decoder library for image rendering
+  // Definitions
   #define Cam_Width 160                                     // Camera Width
   #define Cam_Height 120                                    // Camera Height
   #define Cam_Bytes 3                                       // Number of bytes per pixel (3 for max rgb888)
   #define minimum(a,b)     (((a) < (b)) ? (a) : (b))        // Return the minimum of two values a and b
-
   // Private variables
-  static bool debug_nn = false;                             // Set this to true to see e.g. features generated from the raw signal
-  uint8_t *snapshot_buf;                                    // points to the output of the capture
-  TFT_eSPI tft = TFT_eSPI();                                // TFT screen driver instance
-  uint8_t image_array[Cam_Width * Cam_Height * Cam_Bytes];  // image array for tft display
-
-  // Functions
-  bool ei_camera_capture(uint32_t img_width, uint32_t img_height, uint8_t *out_buf);
+  static bool debug_nn = false;                                       // Set this to true to see e.g. features generated from the raw signal
+  uint8_t *snapshot_buf;                                              // points to the output of the capture
+  TFT_eSPI tft = TFT_eSPI();                                          // TFT screen driver instance
+  uint8_t image_array[Cam_Width * Cam_Height * Cam_Bytes];            // image array for tft display
 
 // FUNCTION : Inititalizes the camera with edited settings
 void ei_camera_init() {
@@ -92,7 +83,7 @@ void ei_camera_init() {
   s->set_colorbar(s, 0);                    // COLOR BAR PATTERN (0 = Disable , 1 = Enable)
 }
 
-// FUNCTION : Draw a JPEG on the TFT (calls renderJPEG)
+// FUNCTION : Draw a JPEG on the TFT screeen (calls function renderJPEG)
 void drawArrayJpeg(const uint8_t arrayname[], uint32_t array_size, int xpos, int ypos) {
 
   int x = xpos;
@@ -103,7 +94,7 @@ void drawArrayJpeg(const uint8_t arrayname[], uint32_t array_size, int xpos, int
   renderJPEG(x, y);
 }
 
-// FUNCTION : Render Image (called from drawArrayJPEG)
+// FUNCTION : Render Image
 void renderJPEG(int xpos, int ypos) {
 
   // retrieve infomration about the image
@@ -223,33 +214,33 @@ bool ei_camera_capture(uint32_t img_width, uint32_t img_height, uint8_t *out_buf
   }
 
   return true;
-}
+} 
 
 // FUNCTION : Set
 static int ei_camera_get_data(size_t offset, size_t length, float *out_ptr) {
-  // we already have a RGB888 buffer, so recalculate offset into pixel index
-  size_t pixel_ix = offset * 3;
-  size_t pixels_left = length;
-  size_t out_ptr_ix = 0;
+    // we already have a RGB888 buffer, so recalculate offset into pixel index
+    size_t pixel_ix = offset * 3;
+    size_t pixels_left = length;
+    size_t out_ptr_ix = 0;
 
-  while (pixels_left != 0) {
-    out_ptr[out_ptr_ix] = (snapshot_buf[pixel_ix] << 16) + (snapshot_buf[pixel_ix + 1] << 8) + snapshot_buf[pixel_ix + 2];
+    while (pixels_left != 0) {
+        out_ptr[out_ptr_ix] = (snapshot_buf[pixel_ix] << 16) + (snapshot_buf[pixel_ix + 1] << 8) + snapshot_buf[pixel_ix + 2];
 
-    // go to the next pixel
-    out_ptr_ix++;
-    pixel_ix+=3;
-    pixels_left--;
-  }
-  // and done!
-  return 0;
+        // go to the next pixel
+        out_ptr_ix++;
+        pixel_ix+=3;
+        pixels_left--;
+    }
+    // and done!
+    return 0;
 }
 
 // FUNCTION : Runs on boot
 void setup() {
-  Serial.begin(115200);                       // Start Serial at 115200 baud
+  Serial.begin(115200);                       // start serial monitor at 115200 baud
   while (!Serial){};                          // wait for monitor to begin
 
-  ei_camera_init();                           // Initialize the camera
+  ei_camera_init();                           // Initialize the Camera
   tft.begin();                                // Initialize screen
   tft.setRotation(1);                         // Set rotation | 0 & 2 Portrait | 1 & 3 landscape
   tft.fillScreen(ST7735_BLACK);               // Clear initialization screen
@@ -259,26 +250,27 @@ void setup() {
 }
 
 // FUNCTION : Runs after boot and loops
-void loop() {
+void loop()
+{
   // instead of wait_ms, we'll wait on the signal, this allows threads to cancel us...
   if (ei_sleep(5) != EI_IMPULSE_OK) {
     return;
   }
-  
+
   // Allocate memory for the image frame
   snapshot_buf = (uint8_t*)malloc(Cam_Width * Cam_Height * Cam_Bytes); 
-    
+
   // check if allocation was successful
   if(snapshot_buf == nullptr) {
     ei_printf("ERR: Failed to allocate snapshot buffer!\n");
     return;
   }
 
-  // Begin Object Classification
+ // Begin Object Classification
   ei::signal_t signal;                                                            // create new edge impulse signal
   signal.total_length = EI_CLASSIFIER_INPUT_WIDTH * EI_CLASSIFIER_INPUT_HEIGHT;   // define the signal size
   signal.get_data = &ei_camera_get_data;                                          // set the signal to point to camera data
-
+  
   // Get camera image frame, this function also calls the draw function for the screen
   if (ei_camera_capture((size_t)EI_CLASSIFIER_INPUT_WIDTH, (size_t)EI_CLASSIFIER_INPUT_HEIGHT, snapshot_buf) == false) {
     ei_printf("Failed to capture image\r\n");
@@ -303,7 +295,7 @@ void loop() {
   // if any objects have been detected by the classifier
   #if EI_CLASSIFIER_OBJECT_DETECTION == 1
     bool bb_found = result.bounding_boxes[0].value > 0;
-    tft.setCursor(0,4);
+    tft.setCursor(0,4);    
     for (size_t ix = 0; ix < result.bounding_boxes_count; ix++) {
       auto bb = result.bounding_boxes[ix];
       if (bb.value == 0) {
